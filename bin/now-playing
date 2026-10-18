@@ -1,5 +1,5 @@
 #!/bin/sh
-# now playing for the tuios dock, macOS only (needs media-control and jq).
+# tuios-nowplaying-macos: now playing for the tuios dock, macOS only (needs media-control and jq).
 #   now-playing [title|prev|next]   stream one dock cell (refresh = "push")
 #   now-playing toggle|back|skip    on-click actions
 # NOW_PLAYING_FPS sets the equalizer speed (default 5, 0 turns it off).

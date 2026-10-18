@@ -1,36 +1,37 @@
-# tuios-nowplaying-macos. Lives in ~/.config/tuios/config.d/, and sorts after
-# look.toml so it wins over a look's dock.center. config.toml still wins over both.
+# tuios-nowplaying-macos: written by its install.sh, which fills in @SCRIPT@.
+# Lives in config.d/ and sorts after look.toml, so it wins over a look's
+# dock.center. config.toml still wins over both.
 
 [dock]
 center = ["custom/np-prev", "custom/nowplaying", "custom/np-next"]
 
 [dock.custom.np-prev]
-command = "~/.config/tuios/scripts/now-playing prev"
+command = "@SCRIPT@ prev"
 refresh = "push"
-on-click = "~/.config/tuios/scripts/now-playing back"
+on-click = "@SCRIPT@ back"
 
 [dock.custom.nowplaying]
-command = "~/.config/tuios/scripts/now-playing"
+command = "@SCRIPT@"
 refresh = "push"
-on-click = "~/.config/tuios/scripts/now-playing toggle"
+on-click = "@SCRIPT@ toggle"
 max-width = 48
 
 [dock.custom.np-next]
-command = "~/.config/tuios/scripts/now-playing next"
+command = "@SCRIPT@ next"
 refresh = "push"
-on-click = "~/.config/tuios/scripts/now-playing skip"
+on-click = "@SCRIPT@ skip"
 
 # keys: override one with the same name in config.toml, or set disabled = true
 [[keybindings.command]]
 name = "nowplaying-next"
 key = "ctrl+."
 type = "shell"
-command = "~/.config/tuios/scripts/now-playing skip"
+command = "@SCRIPT@ skip"
 description = "Now playing: next track"
 
 [[keybindings.command]]
 name = "nowplaying-prev"
 key = "ctrl+,"
 type = "shell"
-command = "~/.config/tuios/scripts/now-playing back"
+command = "@SCRIPT@ back"
 description = "Now playing: previous track"

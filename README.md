@@ -17,16 +17,23 @@ macOS only. It reads Now Playing through [media-control](https://github.com/ungi
 
 ```sh
 brew install media-control jq
-git clone https://github.com/nkapila6/tuios-nowplaying-macos ~/dev/tuios-nowplaying-macos
-~/dev/tuios-nowplaying-macos/install.sh
+curl -fsSL https://raw.githubusercontent.com/nkapila6/tuios-nowplaying-macos/main/install.sh | sh
 ```
 
-`install.sh` symlinks two things, so a `git pull` updates them:
+It drops two files into your tuios config (`$XDG_CONFIG_HOME/tuios` if you set that):
 
-- `bin/now-playing` to `~/.config/tuios/scripts/now-playing`
-- `nowplaying.toml` to `~/.config/tuios/config.d/nowplaying.toml`
+- `scripts/now-playing`
+- `config.d/nowplaying.toml`
 
-tuios picks up the config on its own, no restart. `./install.sh uninstall` removes both links.
+tuios picks up the config on its own, no restart. Run the same command again to update: it only replaces what changed. It never touches a file of the same name that it didn't write.
+
+To uninstall:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/nkapila6/tuios-nowplaying-macos/main/install.sh | sh -s uninstall
+```
+
+Pin a version with `NOWPLAYING_REF=<tag or branch>` in front of `sh`.
 
 ## Tweaks
 
