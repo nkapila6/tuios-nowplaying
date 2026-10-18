@@ -1,0 +1,36 @@
+# tuios-nowplaying-macos. Lives in ~/.config/tuios/config.d/, and sorts after
+# look.toml so it wins over a look's dock.center. config.toml still wins over both.
+
+[dock]
+center = ["custom/np-prev", "custom/nowplaying", "custom/np-next"]
+
+[dock.custom.np-prev]
+command = "~/.config/tuios/scripts/now-playing prev"
+refresh = "push"
+on-click = "~/.config/tuios/scripts/now-playing back"
+
+[dock.custom.nowplaying]
+command = "~/.config/tuios/scripts/now-playing"
+refresh = "push"
+on-click = "~/.config/tuios/scripts/now-playing toggle"
+max-width = 48
+
+[dock.custom.np-next]
+command = "~/.config/tuios/scripts/now-playing next"
+refresh = "push"
+on-click = "~/.config/tuios/scripts/now-playing skip"
+
+# keys: override one with the same name in config.toml, or set disabled = true
+[[keybindings.command]]
+name = "nowplaying-next"
+key = "ctrl+."
+type = "shell"
+command = "~/.config/tuios/scripts/now-playing skip"
+description = "Now playing: next track"
+
+[[keybindings.command]]
+name = "nowplaying-prev"
+key = "ctrl+,"
+type = "shell"
+command = "~/.config/tuios/scripts/now-playing back"
+description = "Now playing: previous track"

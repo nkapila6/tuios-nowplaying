@@ -1,0 +1,74 @@
+#!/bin/sh
+# now playing for the tuios dock, macOS only (needs media-control and jq).
+#   now-playing [title|prev|next]   stream one dock cell (refresh = "push")
+#   now-playing toggle|back|skip    on-click actions
+# NOW_PLAYING_FPS sets the equalizer speed (default 5, 0 turns it off).
+PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+mode="${1:-title}"
+
+case "$mode" in
+  toggle) exec media-control toggle-play-pause ;;
+  back) exec media-control previous-track ;;
+  skip) exec media-control next-track ;;
+esac
+
+# one line per change: "<1|0><tab><text>", empty text when nothing is loaded.
+# prev/next only show while something is loaded, so the dock stays clean
+format='
+  .payload
+  | if (.title // "") == "" then "0\t"
+    elif $mode == "prev" then "0\t⏮"
+    elif $mode == "next" then "0\t⏭"
+    else (if .playing then "1\t" else "0\t⏸ " end)
+      + .title
+      + (if (.artist // "") != "" then " · " + .artist else "" end)
+    end'
+
+tab=$(printf '\t')
+fps="${NOW_PLAYING_FPS:-5}"
+
+if [ "$mode" != "title" ] || [ "$fps" = "0" ]; then
+  media-control stream --no-diff | jq --unbuffered -r --arg mode "$mode" "$format" \
+    | while IFS= read -r line; do
+        text=${line#*"$tab"}
+        [ "${line%%"$tab"*}" = 1 ] && text="▶ $text"
+        printf '%s\n' "$text" || exit 0
+      done
+  exit 0
+fi
+
+# animated: the stream keeps a state file current, the loop below draws frames
+state=$(mktemp -t tuios-now-playing)
+fifo="$state.fifo"
+mkfifo "$fifo"
+media-control stream --no-diff >"$fifo" &
+stream=$!
+trap 'kill "$stream" 2>/dev/null; rm -f "$state" "$state.tmp" "$fifo"' EXIT
+trap 'exit 0' INT TERM HUP PIPE
+
+jq --unbuffered -r --arg mode "$mode" "$format" <"$fifo" \
+  | while IFS= read -r line; do
+      printf '%s\n' "$line" >"$state.tmp" && mv "$state.tmp" "$state"
+    done &
+
+delay=$(awk "BEGIN { print 1 / $fps }")
+set -- ▁▃▅ ▂▅▇ ▃▇▅ ▅▆▃ ▇▄▂ ▅▂▃ ▃▁▅ ▂▃▇
+i=1
+last=""
+while :; do
+  line=$(cat "$state" 2>/dev/null)
+  text=${line#*"$tab"}
+  if [ "${line%%"$tab"*}" = 1 ]; then
+    eval "frame=\${$i}"
+    out="$frame $text"
+    i=$((i % $# + 1))
+  else
+    out="$text"
+  fi
+  # paused or idle: print only on change so the dock isn't redrawn for nothing
+  if [ "$out" != "$last" ]; then
+    printf '%s\n' "$out" || exit 0
+    last="$out"
+  fi
+  sleep "$delay"
+done
