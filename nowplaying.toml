@@ -1,4 +1,4 @@
-# tuios-nowplaying-macos: written by its install.sh, which fills in @SCRIPT@.
+# tuios-nowplaying: written by its install.sh, which fills in @SCRIPT@.
 # Lives in config.d/ and sorts after look.toml, so it wins over a look's
 # dock.center. config.toml still wins over both.
 

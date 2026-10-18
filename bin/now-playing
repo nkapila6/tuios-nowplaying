@@ -1,55 +1,131 @@
 #!/bin/sh
-# tuios-nowplaying-macos: now playing for the tuios dock, macOS only (needs media-control and jq).
+# tuios-nowplaying: now playing for the tuios dock.
+#   macOS: needs media-control and jq. Linux: needs playerctl (MPRIS).
 #   now-playing [title|prev|next]   stream one dock cell (refresh = "push")
-#   now-playing toggle|back|skip    on-click actions
+#   now-playing toggle|back|skip    on-click and key actions
 # NOW_PLAYING_FPS sets the equalizer speed (default 5, 0 turns it off).
+# NOW_PLAYING_PLAYER picks a player on Linux (playerctl --player, e.g. spotify).
 PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 mode="${1:-title}"
+os=$(uname)
+us=$(printf '\037')
+tab=$(printf '\t')
+
+pctl() {
+  if [ -n "${NOW_PLAYING_PLAYER:-}" ]; then
+    playerctl --player="$NOW_PLAYING_PLAYER" "$@"
+  else
+    playerctl "$@"
+  fi
+}
 
 case "$mode" in
-  toggle) exec media-control toggle-play-pause ;;
-  back) exec media-control previous-track ;;
-  skip) exec media-control next-track ;;
+  toggle|back|skip)
+    if [ "$os" = Darwin ]; then
+      case "$mode" in
+        toggle) exec media-control toggle-play-pause ;;
+        back) exec media-control previous-track ;;
+        skip) exec media-control next-track ;;
+      esac
+    else
+      case "$mode" in
+        toggle) pctl play-pause ;;
+        back) pctl previous ;;
+        skip) pctl next ;;
+      esac
+      exit
+    fi
+    ;;
 esac
 
-# one line per change: "<1|0><tab><text>", empty text when nothing is loaded.
-# prev/next only show while something is loaded, so the dock stays clean
-format='
-  .payload
-  | if (.title // "") == "" then "0\t"
-    elif $mode == "prev" then "0\t⏮"
-    elif $mode == "next" then "0\t⏭"
-    else (if .playing then "1\t" else "0\t⏸ " end)
-      + .title
-      + (if (.artist // "") != "" then " · " + .artist else "" end)
-    end'
+# the raw change stream from the OS; exec so a caller's $! is the real process
+stream_raw() {
+  if [ "$os" = Darwin ]; then
+    exec media-control stream --no-diff
+  elif [ -n "${NOW_PLAYING_PLAYER:-}" ]; then
+    exec playerctl --player="$NOW_PLAYING_PLAYER" --follow metadata --format "{{status}}$us{{title}}$us{{artist}}"
+  else
+    exec playerctl --follow metadata --format "{{status}}$us{{title}}$us{{artist}}"
+  fi
+}
 
-tab=$(printf '\t')
+# raw stream -> "<1|0><US><title><US><artist>". US, not tab: the shell collapses
+# empty tab-separated fields, which would shift artist into title
+normalize() {
+  if [ "$os" = Darwin ]; then
+    jq --unbuffered -r '.payload
+      | [(if .playing then "1" else "0" end), (.title // ""), (.artist // "")]
+      | join("\u001f")'
+  else
+    while IFS= read -r line; do
+      status=${line%%"$us"*}
+      [ "$status" = Playing ] && p=1 || p=0
+      case "$line" in
+        *"$us"*) printf '%s%s\n' "$p" "$us${line#*"$us"}" ;;
+        *) printf '0%s%s\n' "$us" "$us" ;; # player went away
+      esac
+    done
+  fi
+}
+
+# events -> "<1|0><tab><cell text>" for this mode. prev/next only show while
+# something is loaded, so the dock stays clean
+cell() {
+  while IFS= read -r ev; do
+    p=${ev%%"$us"*}
+    rest=${ev#*"$us"}
+    title=${rest%%"$us"*}
+    artist=${rest#*"$us"}
+    if [ -z "$title" ]; then
+      text=""
+    elif [ "$mode" = prev ]; then
+      text="⏮"
+    elif [ "$mode" = next ]; then
+      text="⏭"
+    else
+      text="$title"
+      [ -n "$artist" ] && text="$text · $artist"
+      [ "$p" = 1 ] || text="⏸ $text"
+    fi
+    [ "$mode" = title ] || p=0
+    printf '%s\t%s\n' "$p" "$text" || exit 0
+  done
+}
+
 fps="${NOW_PLAYING_FPS:-5}"
 
 if [ "$mode" != "title" ] || [ "$fps" = "0" ]; then
-  media-control stream --no-diff | jq --unbuffered -r --arg mode "$mode" "$format" \
-    | while IFS= read -r line; do
-        text=${line#*"$tab"}
-        [ "${line%%"$tab"*}" = 1 ] && text="▶ $text"
-        printf '%s\n' "$text" || exit 0
-      done
+  stream_raw | normalize | cell | while IFS= read -r line; do
+    text=${line#*"$tab"}
+    [ "${line%%"$tab"*}" = 1 ] && text="▶ $text"
+    printf '%s\n' "$text" || exit 0
+  done
   exit 0
 fi
 
 # animated: the stream keeps a state file current, the loop below draws frames
-state=$(mktemp -t tuios-now-playing)
+# tuios stops cells with an untrappable kill, so the EXIT trap doesn't always
+# run. Files are named by pid, and each start clears those of dead pids
+dir="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/tuios-now-playing-$(id -u)"
+mkdir -p -m 700 "$dir" && [ -O "$dir" ] || exit 1
+for f in "$dir"/*.fifo; do
+  [ -p "$f" ] || continue
+  pid=${f##*/}
+  pid=${pid%.fifo}
+  kill -0 "$pid" 2>/dev/null || rm -f "$dir/$pid" "$dir/$pid.tmp" "$f"
+done
+state="$dir/$$"
 fifo="$state.fifo"
+rm -f "$state" "$fifo"
 mkfifo "$fifo"
-media-control stream --no-diff >"$fifo" &
+stream_raw >"$fifo" &
 stream=$!
 trap 'kill "$stream" 2>/dev/null; rm -f "$state" "$state.tmp" "$fifo"' EXIT
 trap 'exit 0' INT TERM HUP PIPE
 
-jq --unbuffered -r --arg mode "$mode" "$format" <"$fifo" \
-  | while IFS= read -r line; do
-      printf '%s\n' "$line" >"$state.tmp" && mv "$state.tmp" "$state"
-    done &
+normalize <"$fifo" | cell | while IFS= read -r line; do
+  printf '%s\n' "$line" >"$state.tmp" && mv "$state.tmp" "$state"
+done &
 
 delay=$(awk "BEGIN { print 1 / $fps }")
 set -- ▁▃▅ ▂▅▇ ▃▇▅ ▅▆▃ ▇▄▂ ▅▂▃ ▃▁▅ ▂▃▇
