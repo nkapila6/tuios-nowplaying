@@ -21,17 +21,32 @@ command = "@SCRIPT@ next"
 refresh = "push"
 on-click = "@SCRIPT@ skip"
 
-# keys: override one with the same name in config.toml, or set disabled = true
+# keys: ctrl+. ctrl+, ctrl+/ in window mode only, so panes keep them in terminal
+# mode. Each entry also needs a key of its own, so they get leader versions too:
+# ctrl+b alt+. / alt+, / alt+/ work from any mode and never take a key from a pane.
+# Override an entry by name in config.toml, or set disabled = true.
 [[keybindings.command]]
 name = "nowplaying-next"
-key = "ctrl+."
+key = "prefix+alt+."
 type = "shell"
 command = "@SCRIPT@ skip"
 description = "Now playing: next track"
 
 [[keybindings.command]]
 name = "nowplaying-prev"
-key = "ctrl+,"
+key = "prefix+alt+,"
 type = "shell"
 command = "@SCRIPT@ back"
 description = "Now playing: previous track"
+
+[[keybindings.command]]
+name = "nowplaying-toggle"
+key = "prefix+alt+/"
+type = "shell"
+command = "@SCRIPT@ toggle"
+description = "Now playing: play/pause"
+
+[keybindings.window_management]
+"command:nowplaying-next" = ["ctrl+."]
+"command:nowplaying-prev" = ["ctrl+,"]
+"command:nowplaying-toggle" = ["ctrl+/"]

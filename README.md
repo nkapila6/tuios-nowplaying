@@ -9,7 +9,10 @@ What's playing on your Mac, in the middle of the [tuios](https://tuios.dev) dock
 Works with anything that shows up in macOS's Now Playing: Spotify, Apple Music, YouTube or SoundCloud in a browser, podcasts. The little equalizer moves while it plays and turns into `⏸` when you pause.
 
 - click the title to play/pause, click `⏮` / `⏭` to skip
-- `ctrl+.` next track, `ctrl+,` previous track
+- in window mode (`ctrl+b` `esc`): `ctrl+/` play/pause, `ctrl+.` next, `ctrl+,` previous
+- from anywhere: `ctrl+b` then `alt+/`, `alt+.`, `alt+,`
+
+The plain `ctrl` keys only work in window mode, so inside a pane they still go to nvim or your shell.
 
 macOS only. It reads Now Playing through [media-control](https://github.com/ungive/media-control), which still works after Apple locked that API down in 15.4. Tested on macOS 27.
 
@@ -45,12 +48,17 @@ Everything lives in `nowplaying.toml`. tuios reads `config.d/` files in name ord
 center = []
 right = ["custom/np-prev", "custom/nowplaying", "custom/np-next", "clock"]
 
-# different keys
-[[keybindings.command]]
-name = "nowplaying-next"
-key = "alt+]"
+# different window-mode keys
+[keybindings.window_management]
+"command:nowplaying-next" = ["shift+right"]
+"command:nowplaying-prev" = ["shift+left"]
 
-# or no key at all
+# different leader key
+[[keybindings.command]]
+name = "nowplaying-toggle"
+key = "prefix+alt+p"
+
+# or drop one entirely (and set its key under [keybindings.window_management] to [])
 [[keybindings.command]]
 name = "nowplaying-prev"
 disabled = true
@@ -61,6 +69,6 @@ disabled = true
 ## Gotchas
 
 - `nowplaying.toml` sets `dock.center`, and the name sorts after `look.toml`, so it wins over whatever a look puts there. If you had something of your own in the centre, add it back in `config.toml`.
-- `ctrl+,` and `ctrl+.` need a terminal with the kitty keyboard protocol (Ghostty, kitty, WezTerm, foot, Alacritty). Terminal.app can't send them.
+- `ctrl+/`, `ctrl+,` and `ctrl+.` need a terminal with the kitty keyboard protocol (Ghostty, kitty, WezTerm, foot, Alacritty). Terminal.app can't send them.
 - Some players don't do previous/next. A single YouTube video usually ignores both.
 - The cell is hidden when nothing is loaded. If it vanishes while something plays, `tuios list-dock-components` says why and `tuios refresh-dock custom/nowplaying` restarts it.
